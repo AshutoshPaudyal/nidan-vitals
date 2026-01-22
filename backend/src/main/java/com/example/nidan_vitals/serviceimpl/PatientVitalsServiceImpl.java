@@ -68,7 +68,7 @@ public class PatientVitalsServiceImpl implements PatientVitalsService {
     public Page<PatientVitalsResponseDTO> getAllPatientVitals(String patientId, String status, Pageable pageable) {
         return null;
     }
-\
+
     private Observation createFhirObservationResource(PatientVitalsRequestDTO request) {
         Observation observation = new Observation();
         observation.setStatus(Observation.ObservationStatus.FINAL);
