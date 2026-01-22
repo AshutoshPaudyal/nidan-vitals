@@ -43,6 +43,11 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler
+    public ResponseEntity<?> invalidFHIRObservationException(InvalidFHIRObservationException exception) {
+        Map<String, Object> body = defaultExceptionBody(exception);
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
 
     private static Map<String, Object> defaultExceptionBody(Exception exception) {
         log.error("Error: {}", exception.getMessage());
