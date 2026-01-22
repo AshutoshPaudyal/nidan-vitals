@@ -1,0 +1,306 @@
+import React, {useState, useEffect} from 'react';
+import {useNavigate} from 'react-router-dom';
+import {useForm} from 'react-hook-form';
+import {Search, Loader2, AlertCircle} from 'lucide-react';
+import {calculateBMI, getBMIStatus, getBPStatus} from '../utils/vitalsCalculations';
+import FormInput from "../components/FormInput.jsx";
+import VitalsDisplay from "../components/VitalsDisplay.jsx";
+import Toast from "../components/Toast.jsx";
+import {API_BASE_URL} from "../config/api.js";
+
+export default function AddVitals() {
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+    const [filteredPatientIds, setFilteredPatientIds] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [toast, setToast] = useState(null);
+    const [isPatientIdSelected, setIsPatientIdSelected] = useState(false);
+
+    // Initialize React Hook Form
+    const {register, handleSubmit, formState: {errors}, setValue, watch, setError, clearErrors} = useForm({
+        defaultValues: {
+            patientId: '',
+            heightInCm: '',
+            weightInKg: '',
+            systolicBP: '',
+            diastolicBP: ''
+        }
+    });
+
+    // Watch form values for real-time calculations
+    const watchedValues = watch();
+    const {heightInCm, weightInKg, systolicBP, diastolicBP} = watchedValues;
+
+    useEffect(() => {
+        fetchAllPatientIds(searchQuery);
+    }, [searchQuery]);
+
+    const fetchAllPatientIds = async (searchQuery) => {
+        try {
+            const url = searchQuery
+                ? `${API_BASE_URL}/api/fhir/patients?patientId=${searchQuery}`
+                : `${API_BASE_URL}/api/fhir/patients`;
+
+            const response = await fetch(url);
+
+            if (!response.ok) throw new Error('Failed to fetch patient IDs');
+            const data = await response.json();
+            setFilteredPatientIds(data || []);
+        } catch (error) {
+            console.error('Error fetching patient IDs:', error);
+        }
+    };
+
+    const currentBMI = calculateBMI(weightInKg, heightInCm);
+    const currentBMIStatus = getBMIStatus(currentBMI);
+    const currentBPStatus = getBPStatus(systolicBP, diastolicBP);
+
+    const onSubmit = async (data) => {
+        // Validate patient ID selection
+        if (!isPatientIdSelected) {
+            setError('patientId', {
+                type: 'manual',
+                message: 'Please select a Patient ID from the dropdown'
+            });
+            setToast({message: 'Please select a Patient ID from the dropdown', type: 'error'});
+            return;
+        }
+
+        setLoading(true);
+
+        const bmi = calculateBMI(data.weightInKg, data.heightInCm);
+        const bmiStatus = getBMIStatus(bmi);
+
+        const vitalsData = {
+            patientId: data.patientId,
+            heightInCm: parseFloat(data.heightInCm),
+            weightInKg: parseFloat(data.weightInKg),
+            bmi: parseFloat(bmi),
+            systolicBP: parseInt(data.systolicBP),
+            diastolicBP: parseInt(data.diastolicBP),
+            bmiStatus: bmiStatus.label,
+            bloodPressureStatus: currentBPStatus.label
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/fhir/observation`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(vitalsData)
+            });
+            const resData = await response.json();
+
+            if (!response.ok) {
+                throw new Error(resData.message || 'Failed to add vitals');
+            }
+
+            setToast({message: resData.message || 'Vitals added successfully!', type: 'success'});
+            navigate('/');
+        } catch (error) {
+            console.error('Error adding vitals:', error);
+            setToast({message: error.message || 'Failed to add vitals. Please try again.', type: 'error'});
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePatientIdSelect = (id) => {
+        setValue('patientId', id);
+        setIsPatientIdSelected(true);
+        setSearchQuery(id);
+        setShowDropdown(false);
+        clearErrors('patientId');
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50 p-6">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)}/>}
+            <div className="max-w-2xl mx-auto">
+                <div className="bg-white rounded-lg shadow-sm p-8">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Vitals Record</h2>
+
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                        {/* Patient ID Search Field */}
+                        <div>
+                            <div className="relative">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Patient ID <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-3 text-gray-400" size={20}/>
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            setIsPatientIdSelected(false);
+                                            setValue('patientId', e.target.value);
+                                            setShowDropdown(true);
+                                            clearErrors('patientId');
+                                        }}
+                                        onFocus={() => setShowDropdown(true)}
+                                        placeholder="Search or enter Patient ID"
+                                        className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                                            errors.patientId ? 'border-red-500' : 'border-gray-300'
+                                        }`}
+                                    />
+                                </div>
+
+                                {/* Dropdown for patient IDs */}
+                                {showDropdown && (
+                                    <div
+                                        className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                        {filteredPatientIds.length > 0 ? (
+                                            filteredPatientIds.map((id, index) => (
+                                                <div
+                                                    key={index}
+                                                    onClick={() => handlePatientIdSelect(id)}
+                                                    className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
+                                                >
+                                                    {id}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                                                {searchQuery ? 'No matching patient IDs found' : 'No patient IDs available'}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Click outside to close dropdown */}
+                                {showDropdown && (
+                                    <div className="fixed inset-0 z-0" onClick={() => setShowDropdown(false)}></div>
+                                )}
+                            </div>
+                            {errors.patientId && (
+                                <div className="flex items-center gap-1 mt-1.5">
+                                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0"/>
+                                    <p className="text-red-600 text-sm font-medium">{errors.patientId.message}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <FormInput
+                                    label="Height (cm)"
+                                    type="number"
+                                    step="0.1"
+                                    placeholder="e.g., 175.0"
+                                    {...register("heightInCm", {
+                                        required: "Height is required"
+                                    })}
+                                />
+                                {errors.heightInCm && (
+                                    <div className="flex items-center gap-1 mt-1.5">
+                                        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0"/>
+                                        <p className="text-red-600 text-sm font-medium">{errors.heightInCm.message}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <FormInput
+                                    label="Weight (kg)"
+                                    type="number"
+                                    step="0.1"
+                                    placeholder="e.g., 70.0"
+                                    {...register("weightInKg", {
+                                        required: "Weight is required"
+                                    })}
+                                />
+                                {errors.weightInKg && (
+                                    <div className="flex items-center gap-1 mt-1.5">
+                                        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0"/>
+                                        <p className="text-red-600 text-sm font-medium">{errors.weightInKg.message}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {currentBMI && (
+                            <VitalsDisplay
+                                type="BMI"
+                                value={currentBMI}
+                                status={currentBMIStatus}
+                            />
+                        )}
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <FormInput
+                                    label="Systolic BP"
+                                    type="number"
+                                    placeholder="e.g., 120"
+                                    {...register("systolicBP", {
+                                        required: "Systolic BP is required"
+                                    })}
+                                />
+                                {errors.systolicBP && (
+                                    <div className="flex items-center gap-1 mt-1.5">
+                                        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0"/>
+                                        <p className="text-red-600 text-sm font-medium">{errors.systolicBP.message}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <FormInput
+                                    label="Diastolic BP"
+                                    type="number"
+                                    placeholder="e.g., 80"
+                                    {...register("diastolicBP", {
+                                        required: "Diastolic BP is required"
+                                    })}
+                                />
+                                {errors.diastolicBP && (
+                                    <div className="flex items-center gap-1 mt-1.5">
+                                        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0"/>
+                                        <p className="text-red-600 text-sm font-medium">{errors.diastolicBP.message}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {systolicBP && diastolicBP && !errors.systolicBP && !errors.diastolicBP && (
+                            <VitalsDisplay
+                                type="BP"
+                                value={`${systolicBP}/${diastolicBP} mmHg`}
+                                status={currentBPStatus}
+                            />
+                        )}
+
+                        <div className="flex gap-4 pt-4">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/')}
+                                disabled={loading}
+                                className="flex-1 px-6 py-3 border border-gray-300 cursor-pointer text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg cursor-pointer hover:bg-green-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center"
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="animate-spin mr-2" size={20}/>
+                                        Adding Vitals...
+                                    </>
+                                ) : (
+                                    'Add Vitals'
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    );
+}
