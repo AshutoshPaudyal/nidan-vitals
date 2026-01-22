@@ -64,10 +64,44 @@ public class PatientVitalsServiceImpl implements PatientVitalsService {
         return ResponseMessage.builder().message("Patient Vitals added successfully").build();
     }
 
-    @Override
-    public Page<PatientVitalsResponseDTO> getAllPatientVitals(String patientId, String status, Pageable pageable) {
-        return null;
+    public Page<PatientVitalsResponseDTO> getAllPatientVitals(String patientId, String bmiStatus, Pageable pageable) {
+        Page<PatientVitals> pageOfPatientVitals;
+
+        boolean hasPatientId = patientId != null && !patientId.isBlank() && !patientId.isEmpty();
+        boolean hasStatus = bmiStatus != null && !bmiStatus.isBlank() && !bmiStatus.isEmpty() && !bmiStatus.equalsIgnoreCase("ALL");
+
+        if (hasPatientId && hasStatus) {
+            pageOfPatientVitals = patientVitalsRepository
+                    .findAllByPatientEntity_PatientIdContainingIgnoreCaseAndBmiStatusOrderByRecordedAtDesc(
+                            patientId,
+                            bmiStatus.toUpperCase(),
+                            pageable
+                    );
+        } else if (hasPatientId) {
+            pageOfPatientVitals = patientVitalsRepository
+                    .findAllByPatientEntity_PatientIdContainingIgnoreCaseOrderByRecordedAtDesc(
+                            patientId,
+                            pageable
+                    );
+        } else if (hasStatus) {
+            pageOfPatientVitals = patientVitalsRepository
+                    .findAllByBmiStatusOrderByRecordedAtDesc(
+                            bmiStatus.toUpperCase(),
+                            pageable
+                    );
+        } else {
+            pageOfPatientVitals = patientVitalsRepository.findAll(
+                    PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("recordedAt").descending())
+            );
+        }
+
+        var responseDTOS = pageOfPatientVitals.getContent().stream()
+                .map(this::toResponseDto)
+                .toList();
+
+        return new PageImpl<>(responseDTOS, pageable, pageOfPatientVitals.getTotalElements());
     }
+
 
     private Observation createFhirObservationResource(PatientVitalsRequestDTO request) {
         Observation observation = new Observation();
@@ -129,6 +163,20 @@ public class PatientVitalsServiceImpl implements PatientVitalsService {
         component.setValue(quantity);
 
         return component;
+    }
+
+    private PatientVitalsResponseDTO toResponseDto(PatientVitals patientVitals) {
+        return PatientVitalsResponseDTO.builder()
+                .patientId(patientVitals.getPatientEntity().getPatientId())
+                .heightInCm(patientVitals.getHeightInCm())
+                .weightInKg(patientVitals.getWeightInKg())
+                .bmi(patientVitals.getBmi())
+                .systolicBP(patientVitals.getSystolicBP())
+                .diastolicBP(patientVitals.getDiastolicBP())
+                .bmiStatus(patientVitals.getBmiStatus())
+                .bloodPressureStatus(patientVitals.getBloodPressureStatus())
+                .recordedAt(patientVitals.getRecordedAt())
+                .build();
     }
 
 }
