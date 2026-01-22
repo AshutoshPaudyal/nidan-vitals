@@ -4,7 +4,8 @@ const FormSelect = React.forwardRef(({ label, options, ...props }, ref) => {
     return (
         <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-                {label}
+                <span className="mr-1">{label}</span>
+                <span className="text-red-500">*</span>
             </label>
             <select
                 ref={ref}
