@@ -47,7 +47,10 @@ public class PatientServiceImpl implements PatientService {
     }
     @Override
     public List<String> getAllPatientIds(String patientId) {
-        return null;
+        if (patientId != null && !patientId.isEmpty()) {
+            return patientRepository.findPatientIdsLike(patientId);
+        }
+        return patientRepository.findAllPatientIds();
     }
 
     private static PatientEntity getPatientEntity(PatientRequestDTO request, String fhirJson) {

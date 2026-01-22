@@ -24,4 +24,9 @@ public class PatientController {
         return new ResponseEntity<>(patientService.savePatient(patientRequestDTO), CREATED);
     }
 
+    @GetMapping("/patients")
+    public List<String> getAllPatientIds(@RequestParam(required = false) String patientId){
+        return patientService.getAllPatientIds(patientId);
+    }
+
 }
