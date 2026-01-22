@@ -75,6 +75,12 @@
             <artifactId>hapi-fhir-validation-resources-r4</artifactId>
             <version>${hapi.fhir.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${spring.doc.version}</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
