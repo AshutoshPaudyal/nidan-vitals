@@ -1,4 +1,4 @@
-# Nidan Vitals – Full-Stack Vitals Dashboard
+﻿# Nidan Vitals – Full-Stack Vitals Dashboard
 
 A full-stack Vitals Dashboard built for nurses to record patient vitals, calculate health risks (BMI) in real-time, and manage patient records using global healthcare standards (FHIR R4).
 
@@ -82,7 +82,11 @@ Nidan Vitals is a clinical decision support tool for nurses. Key functionality i
 - Maven
 
 ---
-
+###  Clone the repository (develop branch)
+   ```bash
+   git clone -b develop "https://github.com/YOUR-USERNAME/REPO-NAME.git"
+   cd REPO-NAME
+```
 ### Frontend Setup (React + Tailwind)
 
 1. Navigate to the frontend folder:
@@ -124,4 +128,5 @@ Video / GIF demo link:
 https://drive.google.com/file/d/16zdFy38VV9_kn8HxOc3yUIFqrbqgbcLE/view?usp=sharing
 
 This demo showcases patient search, filtering, and real-time BMI calculation.
+
    
